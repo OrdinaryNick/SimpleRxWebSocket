@@ -1,4 +1,4 @@
-package cz.novros.reactive.websocket;
+package com.ordinarynick.reactive.websocket;
 
 import javax.websocket.*;
 import java.util.Collection;

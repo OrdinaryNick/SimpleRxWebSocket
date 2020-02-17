@@ -1,4 +1,4 @@
-package cz.novros.reactive.websocket;
+package com.ordinarynick.reactive.websocket;
 
 import com.google.gson.Gson;
 import io.reactivex.Observable;

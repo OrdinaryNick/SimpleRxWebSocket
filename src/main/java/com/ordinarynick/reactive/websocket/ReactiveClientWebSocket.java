@@ -1,4 +1,4 @@
-package cz.novros.reactive.websocket;
+package com.ordinarynick.reactive.websocket;
 
 import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
