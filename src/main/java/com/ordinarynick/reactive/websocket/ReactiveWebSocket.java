@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import io.reactivex.Observable;
 import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.subjects.Subject;
 
 import javax.websocket.OnMessage;
 import javax.websocket.Session;
@@ -12,41 +13,50 @@ import java.util.Collection;
 import java.util.HashSet;
 
 /**
- * Top class for all reactive web socket implementations.
+ * Base class for server websocket endpoint and client websocket connection. It contains common things for both like JSON
+ * mapping, holding {@link Disposable}s, subscribed {@link Observer}s, etc.
  *
- * @param <T> Type of class which is expected in messages.
+ * @param <T> Type of {@link Class} which is expected to send in websocket messages.
+ *
+ * @author Ordinary Nick
+ * @version 1.0.0
+ * @since reactive.websocket-1.0.0
  */
-public abstract class ReactiveWebSocket<T> extends Observable<T> implements Observer<T> {
-	/**
-	 * Json class for decoding and encoding entities.
-	 */
+public abstract class ReactiveWebSocket<T> extends Subject<T> {
+
+	/** JSON mapper for decoding and encoding JSON. */
 	protected static final Gson gson = new Gson();
-	/**
-	 * Expected class in {@link OnMessage}.
-	 */
+
+	/** Expected {@link Class} in {@link OnMessage}. */
 	protected final Class<T> tClass;
-	/**
-	 * Disposables of {@link Observable}s
-	 */
+
+	/** All {@link Disposable} of subscription this websocket to other {@link Observable}s. */
 	protected final Collection<Disposable> disposables = new HashSet<>();
-	/**
-	 * {@link Observer} subscribed to this instance.
-	 */
+
+	/** If this subject received complete event */
+	private boolean complete = false;
+
+	/** If this subject has received {@link Throwable}. */
+	private Throwable throwable = null;
+
+	/** {@link Observer}s subscribed to this websocket instance. */
 	protected final Collection<Observer<? super T>> observers = new HashSet<>();
 
 	/**
-	 * Prepare web socket for sending or serving data.
+	 * Prepare websocket for sending or serving data.
 	 *
-	 * @param tClass Class which will expected in communication.
+	 * @param tClass {@link Class} which is expected in the websocket communication.
+	 *
+	 * @since reactive.websocket-1.0.0
 	 */
 	protected ReactiveWebSocket(final Class<T> tClass) {
 		this.tClass = tClass;
 	}
 
 	/**
-	 * Subscribe observer to web socket.
+	 * Subscribe {@link Observer} to this websocket instance.
 	 *
-	 * @param observer Observer, which will be subscribed.
+	 * @param observer {@link Observer} which will be subscribed.
 	 */
 	@Override
 	protected void subscribeActual(final Observer<? super T> observer) {
@@ -55,7 +65,7 @@ public abstract class ReactiveWebSocket<T> extends Observable<T> implements Obse
 	}
 
 	/**
-	 * Subscribe this web socket to Observable and stores disposable.
+	 * Subscribes this websocket to {@link Observable} and stores {@link Disposable}.
 	 *
 	 * @param disposable Disposable of subscription.
 	 */
@@ -64,60 +74,81 @@ public abstract class ReactiveWebSocket<T> extends Observable<T> implements Obse
 	}
 
 	/**
-	 * Do nothing.
+	 * Default implementation of {@link Observer#onError(Throwable)} method. If you override this method, do not forget to
+	 * call {@code super.onError(throwable)}.
 	 *
-	 * @param throwable Error which occurs.
+	 * @param throwable {@link Throwable} which occurs in subscribed {@link Observable}.
 	 */
 	public void onError(final Throwable throwable) {
-		// Empty
+		this.throwable = throwable;
 	}
 
 	/**
-	 * Do nothing.
+	 * Default implementation of {@link Observer#onComplete()} method. If you override this method, do not forget to call
+	 * {@code super.onComplete()}.
 	 */
 	public void onComplete() {
-		// Empty
+		complete = true;
 	}
 
 	/**
-	 * Sent entity to {@link Session}.
+	 * Sent entity of type {@link T} to {@link Session}.
 	 *
-	 * @param entity  Entity which will be sent.
-	 * @param session Into this session will be sent.
+	 * @param entity  Entity (type {@link T}) which will be sent into {@link Session}.
+	 * @param session Into this {@link Session} will be entity sent.
+	 *
+	 * @since reactive.websocket-1.0.0
 	 */
 	protected void sentEntity(final T entity, final Session session) {
 		try {
 			session.getBasicRemote().sendText(gson.toJson(entity));
 		} catch (final IOException e) {
-			// TODO Do something with exception
+			// FIXME Do something with exception (log or sent as error or something else)
 		}
 	}
 
+	@Override
+	public boolean hasObservers() {
+		return observers.isEmpty();
+	}
+
+	@Override
+	public boolean hasThrowable() {
+		return throwable != null;
+	}
+
+	@Override
+	public boolean hasComplete() {
+		return complete;
+	}
+
+	@Override
+	public Throwable getThrowable() {
+		return throwable;
+	}
+
 	/**
-	 * {@link Disposable} for subscribed {@link Observer}s.
+	 * {@link Disposable} for subscribed {@link Observer}s to this {@link ReactiveWebSocket}.
+	 *
+	 * @version 1.0.0
+	 * @since reactive.websocket-1.0.0
 	 */
 	private final class WebSocketDisposable implements Disposable {
 
 		/**
-		 * Observer, which holds this {@link Disposable}.
+		 * {@link Observer} which holds this {@link Disposable}.
 		 */
-		private final Observer observer;
+		private final Observer<?> observer;
 
-		private WebSocketDisposable(final Observer observer) {
+		private WebSocketDisposable(final Observer<?> observer) {
 			this.observer = observer;
 		}
 
-		/**
-		 * Dispose observer from web socket.
-		 */
 		@Override
 		public void dispose() {
 			observers.remove(observer);
 		}
 
-		/**
-		 * @return True if observer is disposed from web socket.
-		 */
 		@Override
 		public boolean isDisposed() {
 			return !observers.contains(observer);
