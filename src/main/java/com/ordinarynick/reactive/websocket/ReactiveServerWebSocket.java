@@ -50,7 +50,7 @@ public abstract class ReactiveServerWebSocket<T> extends ReactiveWebSocket<T> {
 	@OnMessage
 	public void onMessage(final Session session, final String message) {
 		final T entity = gson.fromJson(message, tClass);
-		observers.forEach(observer -> observer.onNext(entity));
+		subscribers.forEach(subscriber -> subscriber.onNext(entity));
 		onMessage(session, entity);
 	}
 
